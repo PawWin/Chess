@@ -47,6 +47,7 @@ void ChessGame::initializeBoard() {
 void ChessGame::playGame() {
     std::cout << "Welcome to Chess writen in C++ " << std::endl;
     printChessLogo();
+    isWhiteTurn = true;
     // Zapytaj gracza, czy chce wczytać grę czy rozpocząć nową
     char choice;
     int input;
@@ -71,32 +72,15 @@ void ChessGame::playGame() {
                 std::cout << "Enter your choice: " << std::endl;
                 std::cin >> input;
                 if(input == 1){
-                    std::cout<<"Which color you want to play: (B)lack or (W)hite or (Q)uit"<<std::endl;
-                    char temp;
-                    std::cin >> temp;
-                    switch(temp){
-                        case 'B':{
-                            isWhiteTurn = false;
-                            displayBoard();
-                            PlayerVsPlayer();
-                        }
-                        case 'W':{
-                            isWhiteTurn = true;
-                            displayBoard();
-                            PlayerVsPlayer();
-                        }
-                        case 'Q':{
-                            exit(0);
-                        }
-                        default:{
-                            std::cout<<"Invalid Input"<<std::endl;
-                        }
-                    }
+                    displayBoard();
+                    PlayerVsPlayer();
                 }else if(input == 2){
                     PlayGameAI();
                 }else{
                     std::cout<<"Invalid input"<<std::endl;
                 }
+                displayBoard();
+                PlayerVsPlayer();
                 break;
             }
             default:
