@@ -71,8 +71,27 @@ void ChessGame::playGame() {
                 std::cout << "Enter your choice: " << std::endl;
                 std::cin >> input;
                 if(input == 1){
-                    displayBoard();
-                    PlayerVsPlayer();
+                    std::cout<<"Which color you want to play: (B)lack or (W)hite or (Q)uit"<<std::endl;
+                    char temp;
+                    std::cin >> temp;
+                    switch(temp){
+                        case 'B':{
+                            isWhiteTurn = false;
+                            displayBoard();
+                            PlayerVsPlayer();
+                        }
+                        case 'W':{
+                            isWhiteTurn = true;
+                            displayBoard();
+                            PlayerVsPlayer();
+                        }
+                        case 'Q':{
+                            exit(0);
+                        }
+                        default:{
+                            std::cout<<"Invalid Input"<<std::endl;
+                        }
+                    }
                 }else if(input == 2){
                     PlayGameAI();
                 }else{
@@ -89,7 +108,7 @@ void ChessGame::playGame() {
 }
 
 void ChessGame::PlayerVsPlayer(){
-    //isWhiteTurn = false;
+
     while (true) {
         // Wykonaj ruch dla bieżącego gracza
         std::cout << (isWhiteTurn ? "White's turn: " : "Black's turn: ");
