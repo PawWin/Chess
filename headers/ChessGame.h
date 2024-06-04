@@ -36,7 +36,7 @@ public:
     void initializeBoard();
     bool isValidMove(const std::string& from, const std::string& to);
     void movePiece(const std::string& from, const std::string& to);
-    void makeMove();
+    void makeMove(bool AI);
     bool isValidInput(const std::string& from, const std::string& to);
     void displayBoard();
     void playGame();
@@ -62,6 +62,7 @@ public:
     std::string convertToPosition(int row, int col);
     void makeAIMove();
     int evaluatePawnStructure();
+    bool isCheckAI(bool white);
 
 
 };

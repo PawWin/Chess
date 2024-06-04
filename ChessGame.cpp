@@ -1,6 +1,6 @@
 #include "headers/ChessGame.h"
 
-const int MAX_DEPTH = 4;
+const int MAX_DEPTH = 3;
 ChessGame::ChessGame() : board(8, std::vector<Piece*>(8, nullptr)), isWhiteTurn(true) {
     initializeBoard();
 }
@@ -95,8 +95,9 @@ void ChessGame::PlayerVsPlayer(){
 
     while (true) {
         // Wykonaj ruch dla bieżącego gracza
-        std::cout << (isWhiteTurn ? "White's turn: " : "Black's turn: ");
-        makeMove();
+        std::cout << (isWhiteTurn ? "White's turn: " : "Black's turn: ")<<std::endl;
+        makeMove(false);
+        displayBoard();
 
         // Przełącz turę
         isWhiteTurn = !isWhiteTurn;
@@ -105,48 +106,22 @@ void ChessGame::PlayerVsPlayer(){
 void ChessGame::PlayGameAI(){
     std::string from, to;
     bool gameOver = false;
-    bool playerTurn = true; // Dla prostoty zaczyna gracz
+    bool playerTurn = true;
+    // Dla prostoty zaczyna gracz
     std::string input;
     displayBoard();
     while (!gameOver) {
         if (playerTurn) {
-            std::cout<< "White's turn: " << "Enter move (e.g., A2 A4), 'CASTLE' for castling, or type 'SAVE' to save the game: ";
-            std::cin >> input;
-            std::transform(input.begin(), input.end(), input.begin(),
-                           [](unsigned char c){ return std::toupper(c); });
-            if (input == "SAVE") { // Obsługa przypadku, gdy gracz chce zapisać grę
-                std::cout << "Enter filename to save ";
-                std::string filename;
-                std::cin >> filename;
-                saveMovesToFile(filename+"_moves.txt");
-                saveToFile(filename+".txt");
-                exit(0);
-            } else if (input == "CASTLE") { //Obsługa przypadku, gdy gracz chce wykonac roszadę
-                std::string direction;
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-                std::cout << "Enter 'KINGSIDE' or 'QUEENSIDE' for castling direction: ";
-                std::cin >> direction;
-                std::transform(direction.begin(), direction.end(), direction.begin(),
-                               [](unsigned char c){ return std::toupper(c); });
-                bool kingside = (direction == "KINGSIDE");
-                castle(!playerTurn, kingside);
-                displayBoard();
-                break;
-            }
-            from = input;
-            std::cin >> to;
-            // Zamiana inputu na Uppercase
-            std::transform(from.begin(), from.end(), from.begin(), ::toupper);
-            std::transform(to.begin(), to.end(), to.begin(), ::toupper);
-            movePiece(from,to);
-            displayBoard();
+            makeMove(true);
         } else {
             // Wykonanie ruchu AI
             MoveAI aiMove = findBestMove(playerTurn);
             from = toChessNotation(aiMove.fromX,aiMove.fromY);
             to = toChessNotation(aiMove.toX,aiMove.toY);
+            std::cout<<"AI ";
             movePiece(from,to);
             displayBoard();
+            isWhiteTurn = !isWhiteTurn;
         }
 
         // Sprawdzenie warunków końca gry
@@ -239,11 +214,17 @@ void ChessGame::movePiece(const std::string& from, const std::string& to) {
     isWhiteTurn = !isWhiteTurn;
 }
 
-void ChessGame::makeMove() {
+void ChessGame::makeMove(bool AI) {
     std::string from, to;
 
     // Pętla do-while wykonująca się dopóki gracz nie wprowadzi poprawnego ruchu lub nie wybierze opcji zapisu gry
     while (true) {
+        if (AI) {
+            if (!isWhiteTurn) {
+                return;
+            }
+        }
+
         // Wybór zapisu gry lub wykonania roszady lub ruchu
         std::cout << "Enter move (e.g., A2 A4), 'CASTLE' for castling, or type 'SAVE' to save the game: ";
         std::string input;
@@ -379,11 +360,11 @@ void ChessGame::makeMove() {
         // Zmiana tury
         isWhiteTurn = !isWhiteTurn;
 
-        // Wyświetlenie zaktualizowanej planszy
-        displayBoard();
         break;
     }
 }
+
+
 
 
 bool ChessGame::isValidInput(const std::string& from, const std::string& to) {
@@ -597,6 +578,37 @@ bool ChessGame::isCheck(bool white) {
     bool isUnderCheck = isSquareAttacked(kingX, kingY, !white, visited);
     return isUnderCheck;
 }
+
+bool ChessGame::isCheckAI(bool white) {
+    // Znajdz króla gracza
+    int kingX = -1;
+    int kingY = -1;
+
+    // Znajdz króla na planszy
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            Piece *piece = board[i][j];
+            if (piece != nullptr && piece->getType() == Piece::KING &&
+                piece->getColor() != (white ? Piece::WHITE : Piece::BLACK)) {
+                kingX = i;
+                kingY = j;
+                break;
+            }
+        }
+        if (kingX != -1) break;
+    }
+
+    if (kingX == -1 || kingY == -1) {
+        // Brak króla, bład
+        //std::cerr << "Error: King not found on the board.2" << std::endl;
+        return false;
+    }
+    // Sprawdz czy król jest atakowany
+    std::vector<std::vector<bool>> visited(8, std::vector<bool>(8, false));
+    bool isUnderCheck = isSquareAttacked(kingX, kingY, !white, visited);
+    return isUnderCheck;
+}
+
 
 
 
@@ -900,19 +912,48 @@ void ChessGame::promotePawn(const std::string& position) {
 
 int ChessGame::evaluateBoard() {
     int score = 0;
-    int pieceValues[6] = {100, 320, 330, 500, 900, 20000}; // Pawn, Knight, Bishop, Rook, Queen, King
-
-    for (int row = 0; row < 8; row++) {
-        for (int col = 0; col < 8; col++) {
-            Piece* piece = board[row][col];
+    for (const auto& row : board) {
+        for (const auto& piece : row) {
             if (piece != nullptr) {
-                int value = pieceValues[piece->getType()];
-                score += (piece->getColor() == Piece::WHITE) ? value : -value;
+                // Assign higher scores for capturing pieces
+                int pieceValue = 0;
+                switch (piece->getType()) {
+                    case Piece::PAWN: pieceValue = 10; break;
+                    case Piece::KNIGHT: pieceValue = 30; break;
+                    case Piece::BISHOP: pieceValue = 40; break;
+                    case Piece::ROOK: pieceValue = 50; break;
+                    case Piece::QUEEN: pieceValue = 90; break;
+                    case Piece::KING: pieceValue = 900; break;
+                }
+                score += piece->getColor() == Piece::WHITE ? pieceValue : -pieceValue;
+            }else{
+                score -= 10;
             }
-
         }
     }
-    score += evaluatePawnStructure();
+
+    // Assign a high penalty if the AI's king is in check
+    if (!isCheckAI(true)) { // Assuming AI is black
+        score -= 10000;
+    }
+
+
+    // Penalize the AI for not capturing when it has the opportunity
+    for (int i = 0; i < 8; ++i) {
+        for (int j = 0; j < 8; ++j) {
+            Piece* piece = board[i][j];
+            if (piece != nullptr && piece->getColor() == Piece::BLACK) {
+                for (int x = 0; x < 8; ++x) {
+                    for (int y = 0; y < 8; ++y) {
+                        if (piece->isValidMove(i, j, x, y, board) && board[x][y] != nullptr && board[x][y]->getColor() == Piece::WHITE) {
+                            score -= 50; // Adjust the penalty as needed
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return score;
 }
 
@@ -935,6 +976,11 @@ int ChessGame::minimax( int depth, bool maximizingPlayer) {
                                 Piece* capturedPiece = board[k][l];
                                 board[k][l] = piece;
                                 board[i][j] = nullptr;
+                                if (!isCheckAI(true)) { // Assuming AI is black
+                                    board[i][j] = piece;
+                                    board[k][l] = capturedPiece;
+                                    continue; // Skip this move
+                                }
 
                                 bestScore = std::max(bestScore, minimax( depth - 1, false));
 
@@ -960,6 +1006,12 @@ int ChessGame::minimax( int depth, bool maximizingPlayer) {
                                 Piece* capturedPiece = board[k][l];
                                 board[k][l] = piece;
                                 board[i][j] = nullptr;
+
+                                if (!isCheckAI(true)) { // Assuming AI is black
+                                    board[i][j] = piece;
+                                    board[k][l] = capturedPiece;
+                                    continue; // Skip this move
+                                }
 
                                 bestScore = std::min(bestScore, minimax( depth - 1, true));
 
